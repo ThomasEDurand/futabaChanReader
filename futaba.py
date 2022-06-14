@@ -53,6 +53,14 @@ def board(boards):
             soup = BeautifulSoup(url, 'html.parser')
             breakThread = False
 
+            #Print OP's POST
+            print(soup.find('span', {"class": "csb"}).text)
+            print(soup.find('span', {"class": "cnw"}).text)  
+            print(soup.find('span', {"class": "cno"}).text)
+            print(soup.find('blockquote').text)
+
+
+            #Print Replies
             for i, table in enumerate(soup.find_all('table')):
                 print("\n")
     
