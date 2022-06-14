@@ -53,13 +53,11 @@ def board(boards):
             soup = BeautifulSoup(url, 'html.parser')
             breakThread = False
 
-            k = 1
             for i, table in enumerate(soup.find_all('table')):
-
+                print("\n")
+    
                 if table.find('blockquote') is not None:
-                    print(k)
-                    k+=1
-                    for tag in table.find('blockquote').findChildren():
+                    for tag in table:
                         print(tag.text)
                     if(i%10 == 9):
                         cont = input("Next ten: y/n ")
@@ -97,10 +95,6 @@ def archive():
 
 
 def main():
-    
-    # get_boards()
-    # board()
-    
     #INITIAL SCAN THROUGH BOARDS CREATE A LIST OF TUPPLES
     url = urllib.request.urlopen('https://www.2chan.net/index2.html')
     soup = BeautifulSoup(url, 'html.parser')
@@ -117,8 +111,8 @@ def main():
     while(run):
         
         print("list_boards")
-        print("board")
-        print("archive")
+        print("board: go to board")
+        print("archive: archive last thread visited")
         print("exit")
         command = input("Enter Command: ")
 
