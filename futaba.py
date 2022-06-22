@@ -117,7 +117,8 @@ def main():
 
     run = True
     while(run):
-        
+
+        print("l: list boards, b: go to board, a: archive last thread, e: exit")
         print("list_boards")
         print("board: go to board")
         print("archive: archive last thread visited")
