@@ -2,7 +2,9 @@ from bs4 import BeautifulSoup
 from waybackpy import WaybackMachineSaveAPI
 from rich.prompt import Prompt
 from rich.console import Console
+from rich.table import Table
 import urllib.request
+import math
 import threading
 
 
@@ -10,16 +12,23 @@ lastThreadURL = None
 
 
 def get_boards(console, boards):
-    console.print("id \t board:")
-    for i, t in enumerate(boards):
-        console.print(i + 1, "\t", t[1])
+    l = len(boards)
+    third = math.ceil(l / 3)
+    table = Table()
+    table.add_column("1~" + str(third), no_wrap=True, min_width=30)
+    table.add_column(str(third)+"~"+str(third*2), no_wrap=True, min_width=30)
+    table.add_column(str(2*third)+"~"+str(l), no_wrap=True, min_width=30)
 
-        if i % 10 == 9:
-            cont = input("Next ten: y/n ")
-            if cont == "n" or cont == "N":
-                console.clear()
-                return
-    console.clear()
+    for i in range(0, third):
+        if i+third*2 < l:
+            table.add_row(str(i+1) + "\t" + boards[i][1], str(i+third) + "\t" + boards[i+third][1], str(i+third*2) + "\t" + boards[i+third*2][1])
+        elif i+third < l:
+            table.add_row(str(i+1) + "\t" + boards[i][1], str(i+third) + "\t" + boards[i+third][1], "")
+        else:
+            table.add_row(str(i + 1) + "\t" + boards[i][1], "", "")
+
+    console.print(table)
+    # console.clear()
 
 
 def board(console, boards):
@@ -113,6 +122,7 @@ def main():
         for j, a in enumerate(td.find_all('a')):
             boards.append((a.get('href'), a.text))
 
+    get_boards(console, boards)
     run = True
     while run:
 
