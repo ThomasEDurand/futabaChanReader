@@ -7,7 +7,6 @@ import urllib.request
 import math
 import threading
 
-
 lastThreadURL = None
 
 
@@ -16,14 +15,15 @@ def get_boards(console, boards):
     third = math.ceil(l / 3)
     table = Table()
     table.add_column("1~" + str(third), no_wrap=True, min_width=30)
-    table.add_column(str(third)+"~"+str(third*2), no_wrap=True, min_width=30)
-    table.add_column(str(2*third)+"~"+str(l), no_wrap=True, min_width=30)
+    table.add_column(str(third) + "~" + str(third * 2), no_wrap=True, min_width=30)
+    table.add_column(str(2 * third) + "~" + str(l), no_wrap=True, min_width=30)
 
     for i in range(0, third):
-        if i+third*2 < l:
-            table.add_row(str(i+1) + "\t" + boards[i][1], str(i+third) + "\t" + boards[i+third][1], str(i+third*2) + "\t" + boards[i+third*2][1])
-        elif i+third < l:
-            table.add_row(str(i+1) + "\t" + boards[i][1], str(i+third) + "\t" + boards[i+third][1], "")
+        if i + third * 2 < l:
+            table.add_row(str(i + 1) + "\t" + boards[i][1], str(i + third) + "\t" + boards[i + third][1],
+                          str(i + third * 2) + "\t" + boards[i + third * 2][1])
+        elif i + third < l:
+            table.add_row(str(i + 1) + "\t" + boards[i][1], str(i + third) + "\t" + boards[i + third][1], "")
         else:
             table.add_row(str(i + 1) + "\t" + boards[i][1], "", "")
 
@@ -33,7 +33,13 @@ def get_boards(console, boards):
 
 def board(console, boards):
     boardID = int(Prompt.ask("board id: "))
+    console.clear()
     # Browsing Board
+
+    table = Table()
+    table.add_column("Thread No", no_wrap=True, min_width=5)
+    table.add_column("title", no_wrap=True, min_width=15)
+    table.add_column("replies", no_wrap=True, min_width=5)
     while boardID:
 
         b = boards[boardID - 1][0]
@@ -43,13 +49,17 @@ def board(console, boards):
         soup = BeautifulSoup(url, 'html.parser')
         threads = []
         threadPreviews = []
-        console.print("Thread No \t replies")
         for i, td in enumerate(soup.find_all('td')):
             if td is not None:
-                preview = str(i + 1) + ') ' + td.find('small').text + '\t replies: ' + td.find('font').text
-                console.print(preview)
+                threadTitle = ""
+                if td.find('small'):
+                    threadTitle = td.find('small').text
+                replies = ""
+                if td.find('font'):
+                    replies = td.find('font').text
+                table.add_row(str(i + 1), threadTitle, replies)
                 threads.append(td.find('a').get('href'))
-                threadPreviews.append(preview)
+        console.print(table)
 
         def printThreads(threadPreview):
             for thread in threadPreview:
@@ -58,8 +68,10 @@ def board(console, boards):
         # Browsing Thread
         threadID = int(Prompt.ask("(zero to break) thread no "))
         console.clear()
+        consoleTable = Table(show_lines=True)
+        consoleTable.add_column("Thread No", no_wrap=False, min_width=40)
+        consoleTable.add_column("Text", no_wrap=False, min_width=60)
         while threadID:
-
             cat = 'https:' + b[0:len(b) - 10] + threads[threadID - 1]
             url = urllib.request.urlopen(cat)
             global lastThreadURL
@@ -68,19 +80,23 @@ def board(console, boards):
             breakThread = False
 
             # Print OP's POST
-            console.print(soup.find('span', {"class": "csb"}).text)
-            console.print(soup.find('span', {"class": "cnw"}).text)
-            console.print(soup.find('span', {"class": "cno"}).text)
-            console.print(soup.find('blockquote').text)
+            opID = soup.find('span', {"class": "csb"}).text + "\n" + soup.find('span', {
+                "class": "cnw"}).text + "\n" + soup.find('span', {"class": "cno"}).text
+            opText = soup.find('blockquote').text
+            consoleTable.add_row(opID, opText)
 
             # Print Replies
             for i, table in enumerate(soup.find_all('table')):
-                console.print("\n")
-
-                if table.find('blockquote') is not None:
-                    for tag in table:
-                        console.print(tag.text)
+                blockquote = table.find('blockquote')
+                if blockquote is not None:
+                    paragraph = ""
+                    threadInfo = table.find('span', {"class": "csb"}).text + " " + table.find('span', {"class": "cnm"}).text + " " + table.find('span', {"class": "cnw"}).text + " " + table.find('span', {"class": "cno"}).text
+                    for j, tag in enumerate(blockquote):
+                        paragraph = paragraph + tag.text
+                    consoleTable.add_row(threadInfo, paragraph)
                     if i % 10 == 9:
+                        console.clear()
+                        console.print(consoleTable)
                         cont = Prompt.ask("Next ten: y/n ")
                         if cont == "n" or cont == "N":
                             breakThread = True
@@ -89,6 +105,7 @@ def board(console, boards):
                     if breakThread:
                         break
 
+            console.print(consoleTable)
             printThreads(threadPreviews)
             threadID = int(Prompt.ask("(zero to break) thread no "))
 
@@ -128,7 +145,6 @@ def main():
 
         console.print("l: list boards, b: go to board, a: archive last thread, e: exit")
         command = Prompt.ask("Enter Command: ")
-
         match command:
             case "list_boards" | "l" | "list" | "list boards":
                 get_boards(console, boards)
