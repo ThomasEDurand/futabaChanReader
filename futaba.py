@@ -6,6 +6,7 @@ from rich.table import Table
 import urllib.request
 import math
 import threading
+import climage
 
 lastThreadURL = None
 
@@ -33,17 +34,22 @@ def get_boards(console, boards):
 
 def board(boardID, console, boards):
     console.clear()
+    threadID = 1
     # Browsing Board
-    threadTable = Table()
-    while boardID:
-        threadTable.add_column("Thread No", no_wrap=True, min_width=5)
-        threadTable.add_column("title", no_wrap=True, min_width=15)
-        threadTable.add_column("replies", no_wrap=True, min_width=5)
+    while threadID:
+        if threadID == 0:
+            return
+
         b = boards[boardID - 1][0]
         cat = 'https:' + b[0:len(b) - 3] + "php?mode=cat"
 
         url = urllib.request.urlopen(cat)
         soup = BeautifulSoup(url, 'html.parser')
+        tit = soup.find("span", {"id": "tit"}).text
+        threadTable = Table(title=tit)
+        threadTable.add_column("Thread No", no_wrap=True, min_width=5)
+        threadTable.add_column("title", no_wrap=True, min_width=15)
+        threadTable.add_column("replies", no_wrap=True, min_width=5)
         threads = []
         for i, td in enumerate(soup.find_all('td')):
             if td is not None:
@@ -55,21 +61,23 @@ def board(boardID, console, boards):
                     replies = td.find('font').text
                 threadTable.add_row(str(i + 1), threadTitle, replies)
                 threads.append(td.find('a').get('href'))
+
         console.print(threadTable)
-
-
-
         # Browsing Thread
         threadID = int(Prompt.ask("(zero to break) thread no "))
         console.clear()
+
         consoleTable = Table(show_lines=True)
         consoleTable.add_column("Thread No", no_wrap=False, min_width=40)
         consoleTable.add_column("Text", no_wrap=False, min_width=60)
-        while threadID:
-            threadID = viewThread(threads, threadID, b, console, consoleTable, threadTable)
+        consoleTable.add_column("Img", no_wrap=True, min_width=10)
+        viewThread(threads, threadID, b, console, consoleTable)
+        console.print(threadTable)
+        threadID = int(Prompt.ask("(zero to break) thread no "))
+    console.clear()
 
 
-def viewThread(threads, threadID, b, console, consoleTable, threadTable):
+def viewThread(threads, threadID, b, console, consoleTable):
     cat = 'https:' + b[0:len(b) - 10] + threads[threadID - 1]
     url = urllib.request.urlopen(cat)
     global lastThreadURL
@@ -88,12 +96,16 @@ def viewThread(threads, threadID, b, console, consoleTable, threadTable):
         blockquote = table.find('blockquote')
         if blockquote is not None:
             paragraph = ""
-            threadInfo = table.find('span', {"class": "csb"}).text + " " + table.find('span', {
-                "class": "cnm"}).text + " " + table.find('span', {"class": "cnw"}).text + " " + table.find('span', {
-                "class": "cno"}).text
+            threadInfo = table.find('span', {"class": "csb"}).text + " " + table.find('span', {"class": "cnm"}).text + " " + table.find('span', {"class": "cnw"}).text + " " + table.find('span', {"class": "cno"}).text
             for j, tag in enumerate(blockquote):
                 paragraph = paragraph + tag.text
-            consoleTable.add_row(threadInfo, paragraph)
+
+            image = table.find('img')
+            imageURL = ""
+            if image is not None:
+                imageURL = "https://nov.2chan.net" + image['src']  # thumbnail
+                # imageURL = "https://nov.2chan.net" + image['src'].replace("thumb", "src")[0:-5] + ".jpg"  # source
+            consoleTable.add_row(threadInfo, paragraph, imageURL)
             if i % 10 == 9:
                 console.clear()
                 console.print(consoleTable)
@@ -107,10 +119,6 @@ def viewThread(threads, threadID, b, console, consoleTable, threadTable):
     console.print(consoleTable)
     Prompt.ask("press any key to exit thread")
     console.clear()
-    console.print(threadTable)
-    consoleTable = Table()
-    threadTable = Table()
-    return int(Prompt.ask("(zero to break) thread no "))
 
 
 def archive(console):
@@ -146,7 +154,7 @@ def main():
         bID = Prompt.ask("Go to board")
         if bID == 0 or bID == "e" or bID == "exit" or bID == "q" or bID == "quit":
             return 0
-        board(int(bID)+1, console, boards)
+        board(int(bID) + 1, console, boards)
 
 
 main()
