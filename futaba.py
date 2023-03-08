@@ -1,17 +1,23 @@
 from bs4 import BeautifulSoup
 from waybackpy import WaybackMachineSaveAPI
+import urllib.request
 from rich.prompt import Prompt
 from rich.console import Console
 from rich.table import Table
+from rich.panel import Panel
+from rich.console import Group
 import urllib.request
 import math
+import io
 import threading
+import numpy as np
 import climage
 
 lastThreadURL = None
+header = Panel("ふたばちゃんは、生まれたばかりの掲示板です。")
 
 
-def get_boards(console, boards):
+def get_boards(boards):
     l = len(boards)
     third = math.ceil(l / 3)
     table = Table()
@@ -29,7 +35,6 @@ def get_boards(console, boards):
             table.add_row(str(i + 1) + "\t" + boards[i][1], "", "")
 
     return table
-    # console.clear()
 
 
 def board(boardID, console, boards):
@@ -72,6 +77,7 @@ def board(boardID, console, boards):
         consoleTable.add_column("Text", no_wrap=False, min_width=60)
         consoleTable.add_column("Img", no_wrap=True, min_width=10)
         viewThread(threads, threadID, b, console, consoleTable)
+        console.print(header)
         console.print(threadTable)
         threadID = int(Prompt.ask("(zero to break) thread no "))
     console.clear()
@@ -104,10 +110,15 @@ def viewThread(threads, threadID, b, console, consoleTable):
             imageURL = ""
             if image is not None:
                 imageURL = "https://nov.2chan.net" + image['src']  # thumbnail
+                # with urllib.request.urlopen(imageURL) as url:
+                #    f = io.BytesIO(url.read())
+                # img = climage.convert(f, is_unicode=True)
+                # console.print(img)
                 # imageURL = "https://nov.2chan.net" + image['src'].replace("thumb", "src")[0:-5] + ".jpg"  # source
             consoleTable.add_row(threadInfo, paragraph, imageURL)
             if i % 10 == 9:
                 console.clear()
+                console.print(header)
                 console.print(consoleTable)
                 cont = Prompt.ask("Next ten: y/n ")
                 if cont == "n" or cont == "N":
@@ -117,18 +128,21 @@ def viewThread(threads, threadID, b, console, consoleTable):
 
     console.clear()
     console.print(consoleTable)
-    Prompt.ask("press any key to exit thread")
+    if Prompt.ask("press a to archive thread") == "a":
+        archiveThread = threading.Thread(target=archive, args=(console,))
+        archiveThread.start()
     console.clear()
 
 
 def archive(console):
     global lastThreadURL
+    global header
     if lastThreadURL is not None:
-        console.print("archiving last thread, this may take up to 30 seconds")
+        header = Panel("archiving", style="blink")
         user_agent = "Mozilla/5.0 (Windows NT 5.1; rv:40.0) Gecko/20100101 Firefox/40.0"
         save_api = WaybackMachineSaveAPI(lastThreadURL, user_agent)
         archivedURL = save_api.save()
-        console.print("\n successfully archived " + archivedURL)
+        header = Panel(" successfully archived " + archivedURL)
         f = open("URLS.txt", "a")
         f.write(archivedURL + "\n")
         f.close()
@@ -137,6 +151,7 @@ def archive(console):
 
 
 def main():
+
     console = Console()
     # INITIAL SCAN THROUGH BOARDS CREATE A LIST OF TUPLES
     url = urllib.request.urlopen('https://www.2chan.net/index2.html')
@@ -147,9 +162,10 @@ def main():
         for j, a in enumerate(td.find_all('a')):
             boards.append((a.get('href'), a.text))
 
-    boardsTable = get_boards(console, boards)
+    boardsTable = get_boards(boards)
     console.clear()
     while True:
+        console.print(header)
         console.print(boardsTable)
         bID = Prompt.ask("Go to board")
         if bID == 0 or bID == "e" or bID == "exit" or bID == "q" or bID == "quit":
