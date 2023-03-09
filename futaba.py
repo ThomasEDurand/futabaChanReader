@@ -1,17 +1,14 @@
-from bs4 import BeautifulSoup
-from waybackpy import WaybackMachineSaveAPI
-import urllib.request
-from rich.prompt import Prompt
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.console import Group
-import urllib.request
 import math
-import io
 import threading
-import numpy as np
-import climage
+import urllib.request
+import urllib.request
+
+from bs4 import BeautifulSoup
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.table import Table
+from waybackpy import WaybackMachineSaveAPI
 
 lastThreadURL = None
 header = Panel("ふたばちゃんは、生まれたばかりの掲示板です。")
@@ -19,21 +16,21 @@ console = Console()
 
 
 def getBoardsTable(boards):
-    l = len(boards)
-    third = math.ceil(l/3)
+    length = len(boards)
+    third = math.ceil(length / 3)
     table = Table()
     table.add_column("1~" + str(third), no_wrap=True, min_width=30)
     table.add_column(str(third) + "~" + str(third * 2), no_wrap=True, min_width=30)
-    table.add_column(str(2 * third) + "~" + str(l), no_wrap=True, min_width=30)
+    table.add_column(str(2 * third) + "~" + str(length), no_wrap=True, min_width=30)
 
-    for i in range(1, third+1):
-        if i+third*2 <= l:
-            table.add_row(str(i) + "\t" + boards[i-1][1], str(i+third) + "\t" + boards[i-1+third][1],
-                          str(i+third*2) + "\t" + boards[i-1+third*2][1])
-        elif i+third < l:
-            table.add_row(str(i) + "\t" + boards[i-1][1], str(i+third) + "\t" + boards[i-1+third][1], "")
+    for i in range(1, third + 1):
+        if i + third * 2 <= length:
+            table.add_row(str(i) + "\t" + boards[i - 1][1], str(i + third) + "\t" + boards[i - 1 + third][1],
+                          str(i + third * 2) + "\t" + boards[i - 1 + third * 2][1])
+        elif i + third < length:
+            table.add_row(str(i) + "\t" + boards[i - 1][1], str(i + third) + "\t" + boards[i - 1 + third][1], "")
         else:
-            table.add_row(str(i) + "\t" + boards[i-1][1], "", "")
+            table.add_row(str(i) + "\t" + boards[i - 1][1], "", "")
 
     return table
 
@@ -54,19 +51,19 @@ def board(boardID, boards):
     threadID = 1
     # Browsing Board
     while threadID:
-        if threadID == 0:
-            return
 
         b = boards[boardID - 1][0]
         cat = 'https:' + b[0:len(b) - 3] + "php?mode=cat"
 
         url = urllib.request.urlopen(cat)
         soup = BeautifulSoup(url, 'html.parser')
+
         tit = soup.find("span", {"id": "tit"}).text
         threadTable = Table(title=tit)
         threadTable.add_column("Thread No", no_wrap=True, min_width=5)
         threadTable.add_column("title", no_wrap=True, min_width=15)
         threadTable.add_column("replies", no_wrap=True, min_width=5)
+
         threads = []
         for i, td in enumerate(soup.find_all('td')):
             if td is not None:
@@ -80,30 +77,36 @@ def board(boardID, boards):
                 threads.append(td.find('a').get('href'))
 
         threadID = int(renderDisp(threadTable, "(zero to break) thread no "))
-        console.clear()
+        if 0 < threadID < len(threads):
+            console.clear()
 
-        consoleTable = Table(show_lines=True)
-        consoleTable.add_column("Thread No", no_wrap=False, min_width=40)
-        consoleTable.add_column("Text", no_wrap=False, min_width=60)
-        consoleTable.add_column("Img", no_wrap=True, min_width=10)
+            consoleTable = Table(show_lines=True)
+            consoleTable.add_column("Thread No", no_wrap=False, min_width=40)
+            consoleTable.add_column("Text", no_wrap=False, min_width=60)
+            consoleTable.add_column("Img", no_wrap=True, min_width=10)
 
-        viewThread(threads, threadID, b, consoleTable)
-        threadID = int(renderDisp(threadTable, "(zero to break) thread no "))
+            viewThread(threads, threadID, b, consoleTable)
+            threadID = int(renderDisp(threadTable, "(zero to break) thread no "))
+        else:
+            return
     console.clear()
 
 
 def viewThread(threads, threadID, b, consoleTable):
     global console
-    cat = 'https:' + b[0:len(b) - 10] + threads[threadID - 1]
-    url = urllib.request.urlopen(cat)
     global lastThreadURL
-    lastThreadURL = cat
+
+    concatURL = 'https:' + b[0:len(b) - 10] + threads[threadID - 1]
+    lastThreadURL = concatURL
+    url = urllib.request.urlopen(concatURL)
+
     soup = BeautifulSoup(url, 'html.parser')
     breakThread = False
 
     # Print OP's POST
-    opID = soup.find('span', {"class": "csb"}).text + "\n" + soup.find('span', {
-        "class": "cnw"}).text + "\n" + soup.find('span', {"class": "cno"}).text
+    opID = soup.find('span', {"class": "csb"}).text + "\n"
+    opID += soup.find('span', {"class": "cnw"}).text + "\n"
+    opID += soup.find('span', {"class": "cno"}).text
     opText = soup.find('blockquote').text
     consoleTable.add_row(opID, opText)
 
@@ -112,9 +115,10 @@ def viewThread(threads, threadID, b, consoleTable):
         blockquote = table.find('blockquote')
         if blockquote is not None:
             paragraph = ""
-            threadInfo = table.find('span', {"class": "csb"}).text + " " + table.find('span', {
-                "class": "cnm"}).text + " " + table.find('span', {"class": "cnw"}).text + " " + table.find('span', {
-                "class": "cno"}).text
+            threadInfo = table.find('span', {"class": "csb"}).text + " "
+            threadInfo += table.find('span', {"class": "cnm"}).text + " "
+            threadInfo += table.find('span', {"class": "cnw"}).text + " "
+            threadInfo += table.find('span', {"class": "cno"}).text
             for j, tag in enumerate(blockquote):
                 paragraph = paragraph + tag.text
 
@@ -128,9 +132,9 @@ def viewThread(threads, threadID, b, consoleTable):
                 # console.print(img)
                 # imageURL = "https://nov.2chan.net" + image['src'].replace("thumb", "src")[0:-5] + ".jpg"  # source
             consoleTable.add_row(threadInfo, paragraph, imageURL)
-            if i % 10 == 9:
+            if i - 1 % 10 == 0:
                 cont = renderDisp(consoleTable, "Next ten: y/n")
-                if cont == "n" or cont == "N":
+                if cont == "n" or cont == "N" or cont == "No" or cont == "no":
                     breakThread = True
             if breakThread:
                 break
@@ -170,7 +174,6 @@ def renderDisp(table, prompt):
 
 
 def main():
-
     boards = getBoards()  # array of tuples
     boardsTable = getBoardsTable(boards)  # table, object that only needs to be generated once
     while True:
