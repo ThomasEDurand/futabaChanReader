@@ -13,6 +13,8 @@ from waybackpy import WaybackMachineSaveAPI
 lastThreadURL = None
 header = Panel("ふたばちゃんは、生まれたばかりの掲示板です。")
 console = Console()
+replyTables = list()
+stopThread = False
 
 
 def getBoardsTable(boards):
@@ -80,21 +82,18 @@ def board(boardID, boards):
         if 0 < threadID < len(threads):
             console.clear()
 
-            consoleTable = Table(show_lines=True)
-            consoleTable.add_column("Thread No", no_wrap=False, min_width=40)
-            consoleTable.add_column("Text", no_wrap=False, min_width=60)
-            consoleTable.add_column("Img", no_wrap=True, min_width=10)
-
-            viewThread(threads, threadID, b, consoleTable)
+            viewThread(threads, threadID, b)
             threadID = int(renderDisp(threadTable, "(zero to break) thread no "))
         else:
             return
     console.clear()
 
 
-def viewThread(threads, threadID, b, consoleTable):
+def viewThread(threads, threadID, b):
     global console
     global lastThreadURL
+    global replyTables
+    global stopThread
 
     concatURL = 'https:' + b[0:len(b) - 10] + threads[threadID - 1]
     lastThreadURL = concatURL
@@ -104,22 +103,65 @@ def viewThread(threads, threadID, b, consoleTable):
     breakThread = False
 
     # Print OP's POST
+    opTable = Table(show_lines=True)
+    opTable.add_column("Thread No", no_wrap=False, min_width=40)
+    opTable.add_column("Text", no_wrap=False, min_width=60)
+    opTable.add_column("Img", no_wrap=True, min_width=10)
+
     opID = soup.find('span', {"class": "csb"}).text + "\n"
     opID += soup.find('span', {"class": "cnw"}).text + "\n"
     opID += soup.find('span', {"class": "cno"}).text
     opText = soup.find('blockquote').text
-    consoleTable.add_row(opID, opText)
+    opTable.add_row(opID, opText)
+    replyTables.append(opTable)
 
+    fetch = threading.Thread(target=fetchReplies, args=(url,))
+    fetch.start()
+    k = 0
+    while True:
+        r = renderDisp(replyTables[k],
+                       "j: prev 10, k: next 10, a: archive thread, tables " + str(len(replyTables)) + " threads " + str(
+                           threading.active_count()))
+        if r == "a":
+            archiveThread = threading.Thread(target=archive)
+            archiveThread.start()
+        elif r == "j" and 0 < k:
+            k -= 1
+        elif r == "k" and k < len(replyTables) - 1:
+            k += 1
+        elif r == "q":
+            stopThread = True
+            fetch.join()
+            replyTables = list()
+            stopThread = False
+            return
+        else:
+            console.print("invalid char")
     # Print Replies
-    for i, table in enumerate(soup.find_all('table')):
-        blockquote = table.find('blockquote')
-        if blockquote is not None:
+
+
+def fetchReplies(url):
+    global replyTables
+    global stopThread
+    soup = BeautifulSoup(url, 'html.parser')
+
+    s = soup.find_all('table')
+    numReplies = len(s)
+
+    k = 1
+    replyTables.append(Table(show_lines=True))
+    replyTables[k].add_column("Thread No", no_wrap=False, min_width=40)
+    replyTables[k].add_column("Text", no_wrap=False, min_width=60)
+    replyTables[k].add_column("Img", no_wrap=True, min_width=10)
+    for i, table in enumerate(s):
+        bq = table.find('blockquote')
+        if bq is not None:
             paragraph = ""
             threadInfo = table.find('span', {"class": "csb"}).text + " "
             threadInfo += table.find('span', {"class": "cnm"}).text + " "
             threadInfo += table.find('span', {"class": "cnw"}).text + " "
             threadInfo += table.find('span', {"class": "cno"}).text
-            for j, tag in enumerate(blockquote):
+            for j, tag in enumerate(bq):
                 paragraph = paragraph + tag.text
 
             image = table.find('img')
@@ -131,18 +173,17 @@ def viewThread(threads, threadID, b, consoleTable):
                 # img = climage.convert(f, is_unicode=True)
                 # console.print(img)
                 # imageURL = "https://nov.2chan.net" + image['src'].replace("thumb", "src")[0:-5] + ".jpg"  # source
-            consoleTable.add_row(threadInfo, paragraph, imageURL)
-            if i - 1 % 10 == 0:
-                cont = renderDisp(consoleTable, "Next ten: y/n")
-                if cont == "n" or cont == "N" or cont == "No" or cont == "no":
-                    breakThread = True
-            if breakThread:
-                break
 
-    if renderDisp(consoleTable, "press a to archive thread") == "a":
-        archiveThread = threading.Thread(target=archive)
-        archiveThread.start()
-    console.clear()
+            replyTables[k].add_row(threadInfo, paragraph, imageURL)
+            if (i-1) % 10 == 0 or i == numReplies - 1:
+                if stopThread:
+                    return
+
+                replyTables.append(Table(show_lines=True))
+                k += 1
+                replyTables[k].add_column("Thread No", no_wrap=False, min_width=40)
+                replyTables[k].add_column("Text", no_wrap=False, min_width=60)
+                replyTables[k].add_column("Img", no_wrap=True, min_width=10)
 
 
 def archive():
