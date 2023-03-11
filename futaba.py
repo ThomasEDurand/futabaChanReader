@@ -2,6 +2,7 @@ import math
 import threading
 import urllib.request
 import urllib.request
+import sys
 
 from bs4 import BeautifulSoup
 from rich.console import Console
@@ -100,7 +101,6 @@ def viewThread(threads, threadID, b):
     url = urllib.request.urlopen(concatURL)
 
     soup = BeautifulSoup(url, 'html.parser')
-    breakThread = False
 
     # Print OP's POST
     opTable = Table(show_lines=True)
@@ -115,19 +115,18 @@ def viewThread(threads, threadID, b):
     opTable.add_row(opID, opText)
     replyTables.append(opTable)
 
-    fetch = threading.Thread(target=fetchReplies, args=(url,))
+    fetch = threading.Thread(target=fetchReplies, args=(soup,))
     fetch.start()
     k = 0
     while True:
-        r = renderDisp(replyTables[k],
-                       "j: prev 10, k: next 10, a: archive thread, tables " + str(len(replyTables)) + " threads " + str(
-                           threading.active_count()))
+        # r = renderDisp(replyTables[k], "j: prev 10, k: next 10, a: archive thread, tables " + str(len(replyTables)) + " threads " + str(threading.active_count()) + " k: " + str(k))
+        r = renderDisp(replyTables[k], "j: prev 10, k: next 10, a: archive thread, tables ")
         if r == "a":
             archiveThread = threading.Thread(target=archive)
             archiveThread.start()
         elif r == "j" and 0 < k:
             k -= 1
-        elif r == "k" and k < len(replyTables) - 1:
+        elif r == "k" and k < len(replyTables) - 2:  # last table is blank
             k += 1
         elif r == "q":
             stopThread = True
@@ -140,19 +139,19 @@ def viewThread(threads, threadID, b):
     # Print Replies
 
 
-def fetchReplies(url):
+def fetchReplies(soup):
     global replyTables
     global stopThread
-    soup = BeautifulSoup(url, 'html.parser')
 
     s = soup.find_all('table')
     numReplies = len(s)
 
     k = 1
     replyTables.append(Table(show_lines=True))
-    replyTables[k].add_column("Thread No", no_wrap=False, min_width=40)
+    replyTables[k].add_column("Thread No", no_wrap=False, min_width=30)
     replyTables[k].add_column("Text", no_wrap=False, min_width=60)
     replyTables[k].add_column("Img", no_wrap=True, min_width=10)
+
     for i, table in enumerate(s):
         bq = table.find('blockquote')
         if bq is not None:
@@ -174,15 +173,15 @@ def fetchReplies(url):
                 # console.print(img)
                 # imageURL = "https://nov.2chan.net" + image['src'].replace("thumb", "src")[0:-5] + ".jpg"  # source
 
-            replyTables[k].add_row(threadInfo, paragraph, imageURL)
-            if (i-1) % 10 == 0 or i == numReplies - 1:
+            replyTables[k].add_row(str(i-2) + " " + threadInfo, paragraph, imageURL)
+            if (i-2) % 10 == 0 or i == numReplies - 1:
                 if stopThread:
                     return
 
                 replyTables.append(Table(show_lines=True))
                 k += 1
-                replyTables[k].add_column("Thread No", no_wrap=False, min_width=40)
-                replyTables[k].add_column("Text", no_wrap=False, min_width=60)
+                replyTables[k].add_column("Thread No" + str(k), no_wrap=False, min_width=30)
+                replyTables[k].add_column("Text", no_wrap=False, min_width=60,)
                 replyTables[k].add_column("Img", no_wrap=True, min_width=10)
 
 
